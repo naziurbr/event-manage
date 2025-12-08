@@ -1,7 +1,7 @@
 <?php
 $title = 'Settings';
 require_once __DIR__ . '/../config/config.php';
-require_admin();
+
 require_once __DIR__ . '/../includes/db.php';
 include __DIR__ . '/../includes/header.php';
 

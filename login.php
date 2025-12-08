@@ -1,35 +1,49 @@
 <?php
-$title = 'Login';
+session_start();
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/db.php';
 
-$db = new Database(); // no need to pass $pdo
-$userModel = new User($db);
+// Create database instance
+$db = new Database();
+
+$error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!csrf_check($_POST['csrf'] ?? '')) {
-        flash('error', 'Invalid CSRF token.');
-        redirect(BASE_URL . '/login.php');
-    }
 
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
+  $email = trim($_POST['email'] ?? '');
+  $password = $_POST['password'] ?? '';
 
-    $user = $userModel->findByEmail($email);
-    if (!$user || !$userModel->verifyPassword($user, $password)) {
-        flash('error', 'Invalid credentials.');
-        redirect(BASE_URL . '/login.php');
-    }
+  if (empty($email) || empty($password)) {
+    $error = "Please enter both email and password.";
+  } else {
+    // MD5 hash the password
+    $hashed = md5($password);
 
-    $_SESSION['user'] = [
-        'id' => $user['id'],
-        'name' => $user['name'],
+    // Check if user exists
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ? AND password = ?");
+    $stmt->execute([$email, $hashed]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($user) {
+      // Login successful
+      $_SESSION['user'] = [
+        'id'    => $user['id'],
+        'name'  => $user['name'],
         'email' => $user['email'],
-        'role' => $user['role'],
-        'avatar' => $user['avatar'],
-    ];
-    flash('success', 'Logged in successfully.');
-    redirect(BASE_URL . '/index.php');
+        'role'  => $user['role'] ?? 'user',
+        'avatar' => $user['avatar'] ?? null
+      ];
+
+      if ($user['role'] === 'admin') {
+        header("Location: admindashboard.php");
+      } else {
+        header("Location: dashboard.php");
+      }
+      exit;
+    } else {
+      echo "Invalid email or password.";
+    }
+  }
 }
 ?>
 
@@ -132,12 +146,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   <div class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within/field:text-brand-500 transition-colors duration-300">
                     <i class="fas fa-envelope"></i>
                   </div>
-                  <input type="email" 
-                         name="email" 
-                         required 
-                         placeholder="you@example.com"
-                         class="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-300 bg-white/90 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all duration-300 placeholder-gray-400"
-                         autocomplete="email">
+                  <input type="email"
+                    name="email"
+                    required
+                    placeholder="you@example.com"
+                    class="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-300 bg-white/90 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all duration-300 placeholder-gray-400"
+                    autocomplete="email">
                   <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-brand-500/0 via-purple-500/0 to-pink-500/0 group-focus-within/field:from-brand-500/5 group-focus-within/field:via-purple-500/5 group-focus-within/field:to-pink-500/5 pointer-events-none -z-10 transition-all duration-500"></div>
                 </div>
               </div>
@@ -156,16 +170,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   <div class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within/field:text-brand-500 transition-colors duration-300">
                     <i class="fas fa-lock"></i>
                   </div>
-                  <input type="password" 
-                         name="password" 
-                         required 
-                         placeholder="••••••••"
-                         class="w-full pl-12 pr-12 py-3 rounded-xl border border-gray-300 bg-white/90 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all duration-300 placeholder-gray-400"
-                         autocomplete="current-password"
-                         id="password-input">
-                  <button type="button" 
-                          class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-300"
-                          onclick="togglePasswordVisibility()">
+                  <input type="password"
+                    name="password"
+                    required
+                    placeholder="••••••••"
+                    class="w-full pl-12 pr-12 py-3 rounded-xl border border-gray-300 bg-white/90 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all duration-300 placeholder-gray-400"
+                    autocomplete="current-password"
+                    id="password-input">
+                  <button type="button"
+                    class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-300"
+                    onclick="togglePasswordVisibility()">
                     <i class="fas fa-eye" id="password-toggle-icon"></i>
                   </button>
                   <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-brand-500/0 via-purple-500/0 to-pink-500/0 group-focus-within/field:from-brand-500/5 group-focus-within/field:via-purple-500/5 group-focus-within/field:to-pink-500/5 pointer-events-none -z-10 transition-all duration-500"></div>
@@ -174,10 +188,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
               <!-- Remember Me -->
               <div class="flex items-center">
-                <input type="checkbox" 
-                       name="remember" 
-                       id="remember"
-                       class="h-5 w-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500 focus:ring-offset-0 transition-colors duration-300">
+                <input type="checkbox"
+                  name="remember"
+                  id="remember"
+                  class="h-5 w-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500 focus:ring-offset-0 transition-colors duration-300">
                 <label for="remember" class="ml-3 text-gray-700 hover:text-gray-900 cursor-pointer transition-colors duration-300">
                   Remember me
                 </label>
@@ -185,8 +199,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
               <!-- Submit Button -->
               <div class="pt-4">
-                <button type="submit" 
-                        class="group relative w-full inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white rounded-2xl shadow-xl shadow-brand-500/30 hover:shadow-2xl hover:shadow-brand-500/40 transform hover:-translate-y-1 transition-all duration-300 overflow-hidden">
+                <button type="submit"
+                  class="group relative w-full inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white rounded-2xl shadow-xl shadow-brand-500/30 hover:shadow-2xl hover:shadow-brand-500/40 transform hover:-translate-y-1 transition-all duration-300 overflow-hidden">
                   <span class="absolute inset-0 bg-gradient-to-r from-brand-500 to-brand-600 group-hover:from-brand-600 group-hover:to-brand-700 transition-all duration-300"></span>
                   <span class="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                   <span class="relative flex items-center">
@@ -209,13 +223,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
               <!-- Social Login Buttons -->
               <div class="grid grid-cols-2 gap-3">
-                <button type="button" 
-                        class="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 group">
+                <button type="button"
+                  class="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 group">
                   <i class="fab fa-google text-rose-500 mr-3"></i>
                   <span class="text-gray-700 group-hover:text-gray-900">Google</span>
                 </button>
-                <button type="button" 
-                        class="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 group">
+                <button type="button"
+                  class="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 group">
                   <i class="fab fa-facebook text-blue-600 mr-3"></i>
                   <span class="text-gray-700 group-hover:text-gray-900">Facebook</span>
                 </button>
@@ -226,8 +240,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="mt-10 pt-6 border-t border-gray-200 text-center">
               <p class="text-gray-600">
                 Don't have an account?
-                <a href="<?php echo BASE_URL; ?>/register.php" 
-                   class="font-semibold text-brand-600 hover:text-brand-700 ml-1 inline-flex items-center group/link transition-colors duration-300">
+                <a href="<?php echo BASE_URL; ?>/register.php"
+                  class="font-semibold text-brand-600 hover:text-brand-700 ml-1 inline-flex items-center group/link transition-colors duration-300">
                   <span>Create account</span>
                   <i class="fas fa-arrow-right ml-2 transform group-hover/link:translate-x-1 transition-transform duration-300"></i>
                 </a>
@@ -255,7 +269,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   function togglePasswordVisibility() {
     const passwordInput = document.getElementById('password-input');
     const passwordIcon = document.getElementById('password-toggle-icon');
-    
+
     if (passwordInput.type === 'password') {
       passwordInput.type = 'text';
       passwordIcon.classList.remove('fa-eye');
@@ -271,28 +285,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   document.addEventListener('DOMContentLoaded', function() {
     const form = document.querySelector('form');
     const submitButton = form.querySelector('button[type="submit"]');
-    
+
     form.addEventListener('submit', function(e) {
       const emailInput = form.querySelector('input[name="email"]');
       const passwordInput = form.querySelector('input[name="password"]');
       let isValid = true;
-      
+
       // Simple validation with visual feedback
       if (!emailInput.value || !emailInput.validity.valid) {
         emailInput.classList.add('border-rose-400', 'shake-animation');
         isValid = false;
         setTimeout(() => emailInput.classList.remove('shake-animation'), 300);
       }
-      
+
       if (!passwordInput.value) {
         passwordInput.classList.add('border-rose-400', 'shake-animation');
         isValid = false;
         setTimeout(() => passwordInput.classList.remove('shake-animation'), 300);
       }
-      
+
       if (!isValid) {
         e.preventDefault();
-        
+
         // Button shake animation
         submitButton.classList.add('shake-animation');
         setTimeout(() => submitButton.classList.remove('shake-animation'), 300);
@@ -304,7 +318,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           Signing in...
         `;
         submitButton.disabled = true;
-        
+
         // Revert after 3 seconds (in case form submission fails)
         setTimeout(() => {
           submitButton.innerHTML = originalHTML;
@@ -312,7 +326,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }, 3000);
       }
     });
-    
+
     // Remove error styles on input
     const inputs = form.querySelectorAll('input');
     inputs.forEach(input => {
@@ -326,11 +340,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <style>
   /* Shake animation for validation */
   @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-    20%, 40%, 60%, 80% { transform: translateX(5px); }
+
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+      transform: translateX(-5px);
+    }
+
+    20%,
+    40%,
+    60%,
+    80% {
+      transform: translateX(5px);
+    }
   }
-  
+
   .shake-animation {
     animation: shake 0.3s ease-in-out;
   }

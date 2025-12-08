@@ -19,7 +19,10 @@ if (!$user || !$userModel->verifyPassword($user, $password)) {
 }
 
 $_SESSION['user'] = [
-    'id' => $user['id'], 'name' => $user['name'],
-    'email' => $user['email'], 'role' => $user['role'], 'avatar' => $user['avatar'],
+    'id' => $user['id'],
+     'name' => $user['name'],
+    'email' => $user['email'],
+     'role' => $user['role'],
+      'avatar' => $user['avatar'],
 ];
 echo json_encode(['success' => true]);
